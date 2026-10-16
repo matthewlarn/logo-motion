@@ -1,0 +1,19 @@
+// Independent binary skeleton tracing, distance field, and path simplification.
+export function distanceField(mask,w,h){
+ const f=new Float64Array(w*h),tmp=new Float64Array(w*h),out=new Float64Array(w*h);for(let i=0;i<f.length;i++)f[i]=mask[i]?1e12:0;
+ function edt(a,n){const v=new Int32Array(n),z=new Float64Array(n+1),d=new Float64Array(n);let k=0;v[0]=0;z[0]=-Infinity;z[1]=Infinity;for(let q=1;q<n;q++){let s;do{s=((a[q]+q*q)-(a[v[k]]+v[k]*v[k]))/(2*(q-v[k]));if(s<=z[k])k--;else break;}while(k>=0);if(k<0){k=0;v[0]=q;z[0]=-Infinity;z[1]=Infinity;}else{k++;v[k]=q;z[k]=s;z[k+1]=Infinity;}}k=0;for(let q=0;q<n;q++){while(z[k+1]<q)k++;d[q]=(q-v[k])**2+a[v[k]];}return d;}
+ for(let y=0;y<h;y++)tmp.set(edt(f.subarray(y*w,(y+1)*w),w),y*w);for(let x=0;x<w;x++){const a=new Float64Array(h);for(let y=0;y<h;y++)a[y]=tmp[y*w+x];const d=edt(a,h);for(let y=0;y<h;y++)out[y*w+x]=Math.sqrt(d[y]);}return out;
+}
+export function thin(input,w,h){const a=Uint8Array.from(input);let changed=true,iteration=0;while(changed&&iteration++<Math.max(w,h)){changed=false;for(let phase=0;phase<2;phase++){const remove=[];for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!a[i])continue;const p=[a[i-w],a[i-w+1],a[i+1],a[i+w+1],a[i+w],a[i+w-1],a[i-1],a[i-w-1]];const b=p.reduce((s,v)=>s+v,0);if(b<2||b>6)continue;let transitions=0;for(let j=0;j<8;j++)if(!p[j]&&p[(j+1)%8])transitions++;if(transitions!==1)continue;if(phase===0?(p[0]*p[2]*p[4]||p[2]*p[4]*p[6]):(p[0]*p[2]*p[6]||p[0]*p[4]*p[6]))continue;remove.push(i);}for(const i of remove)a[i]=0;if(remove.length)changed=true;}}return a;}
+export function simplify(pts,tolerance){if(pts.length<3)return pts;const keep=new Uint8Array(pts.length);keep[0]=keep[pts.length-1]=1;const stack=[[0,pts.length-1]];while(stack.length){const [a,b]=stack.pop(),p=pts[a],q=pts[b];let max=tolerance*tolerance,index=-1;const dx=q[0]-p[0],dy=q[1]-p[1],den=dx*dx+dy*dy;for(let i=a+1;i<b;i++){const r=pts[i],t=den?Math.max(0,Math.min(1,((r[0]-p[0])*dx+(r[1]-p[1])*dy)/den)):0;const d=(r[0]-p[0]-t*dx)**2+(r[1]-p[1]-t*dy)**2;if(d>max){max=d;index=i;}}if(index>=0){keep[index]=1;stack.push([a,index],[index,b]);}}return pts.filter((_,i)=>keep[i]);}
+export function trace(mask,w,h,{cleanup=1,tolerance=.7}={}){
+ const radius=distanceField(mask,w,h),skeleton=thin(mask,w,h),adj=new Map();
+ for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x;if(!skeleton[i])continue;const ns=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue;const j=i+dy*w+dx;if(!skeleton[j])continue;if(dx&&dy&&(skeleton[i+dx]||skeleton[i+dy*w]))continue;ns.push(j);}adj.set(i,ns);}
+ const used=new Set(),raw=[],key=(a,b)=>a<b?a+':'+b:b+':'+a;
+ function walk(start,next){const path=[start];let prev=start,cur=next;used.add(key(prev,cur));let guard=0;while(guard++<w*h){path.push(cur);const ns=adj.get(cur)||[];if(cur===start||ns.length!==2)break;const n=ns[0]===prev?ns[1]:ns[0];if(used.has(key(cur,n)))break;used.add(key(cur,n));prev=cur;cur=n;}return path;}
+ for(const [i,ns]of adj){if(ns.length!==2)for(const n of ns)if(!used.has(key(i,n)))raw.push(walk(i,n));if(ns.length===0)raw.push([i]);}
+ for(const [i,ns]of adj)for(const n of ns)if(!used.has(key(i,n)))raw.push(walk(i,n));
+ let paths=raw.map(indices=>{let length=0;const pts=indices.map(i=>[i%w,Math.floor(i/w)]);for(let j=1;j<pts.length;j++)length+=Math.hypot(pts[j][0]-pts[j-1][0],pts[j][1]-pts[j-1][1]);return {points:simplify(pts,tolerance),length,width:indices.reduce((max,i)=>Math.max(max,radius[i]),0)*2+3,terminal:(adj.get(indices[0])||[]).length<=1||(adj.get(indices.at(-1))||[]).length<=1};});
+ const kept=paths.filter(p=>!p.terminal||p.length>=cleanup*p.width*.5);if(kept.length)paths=kept;else if(paths.length)paths=[paths.reduce((a,b)=>a.length>b.length?a:b)];
+ return paths.map(p=>({...p,points:p.points.length===1?[p.points[0],[p.points[0][0]+.01,p.points[0][1]]]:p.points}));
+}
