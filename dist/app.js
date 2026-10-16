@@ -39,8 +39,11 @@ const transform=state.parents[i]||[1,0,0,1,0,0],mask=svgEl('mask',{id:'lm-mask-'
 mask.append(content);defs.append(mask);masks[i]=content;
 const related=times.filter(t=>state.chains.find(c=>c.id===t.id)?.shape===i),finish=related.length?Math.max(...related.map(t=>t.end)):0;
 // Complete each shape in its own letter window, never in a second pass at the end.
-const completed=svgEl('rect',{x,y,width:w,height:h,fill:'white',opacity:0,'data-complete-at':finish});content.append(completed);
-if(animated){const at=finish*num('duration')/total;addDiscrete(completed,'opacity',at<1?[0,1,1]:[0,1],at<1?[0,at,1]:[0,1],total);}
+// A shape holding several letters completes each letter in its own window, clipped to that letter, so corners the pen cut fill in before the next letter starts.
+const owners=state.groups.filter(g=>g.shapes.includes(i)&&g.strokes.length),extent=g=>{const cs=g.strokes.map(id=>state.chains.find(c=>c.id===id)).filter(Boolean),pts=cs.flatMap(c=>c.points);return {x0:Math.min(...pts.map(p=>p[0])),x1:Math.max(...pts.map(p=>p[0])),y0:Math.min(...pts.map(p=>p[1])),y1:Math.max(...pts.map(p=>p[1])),pad:Math.max(...cs.map(c=>c.width))/2+.05};};
+const regions=owners.length>1?owners.map(g=>{const e=extent(g),win=windowFor(g);let [x0,x1]=[e.x0-e.pad,e.x1+e.pad];for(const n of owners){if(n===g)continue;const f=extent(n);if(f.y1<e.y0||f.y0>e.y1)continue;if(f.x0>e.x0)x1=Math.min(x1,Math.max(e.x1,(e.x1+f.x0)/2));else if(f.x1<e.x1)x0=Math.max(x0,Math.min(e.x0,(e.x0+f.x1)/2));}return {x:x0,y:e.y0-e.pad,w:x1-x0,h:e.y1-e.y0+e.pad*2,finish:win.end};}):[{x,y,w,h,finish}];
+for(const r of regions){const completed=svgEl('rect',{x:r.x,y:r.y,width:r.w,height:r.h,fill:'white',opacity:0,'data-complete-at':r.finish});content.append(completed);
+if(animated){const at=r.finish*num('duration')/total;addDiscrete(completed,'opacity',at<1?[0,1,1]:[0,1],at<1?[0,at,1]:[0,1],total);}}
 const wrapper=svgEl('g',{mask:'url(#lm-mask-'+i+')'});el.parentNode.insertBefore(wrapper,el);wrapper.append(el);
 });drawing.append(source);}
 for(const c of state.chains){const timing=byTime.get(c.id);if(!timing)continue;
