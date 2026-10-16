@@ -33,7 +33,7 @@ function buildSVG({animated=false,pathsOnly=false}={}){
 const [x,y,w,h]=state.view,line=pathsOnly||$('mode').value==='line',padding=line?num('width')/2+2:0,root=svgEl('svg',{xmlns:'http://www.w3.org/2000/svg',viewBox:[x-padding,y-padding,w+padding*2,h+padding*2].join(' '),width:w+padding*2,height:h+padding*2,role:'img','aria-label':state.name+' write-on animation'});
 const title=svgEl('title');title.textContent=state.name+' write-on animation';root.append(title);
 const defs=svgEl('defs'),drawing=svgEl('g',{'data-drawing':'true'});root.append(defs,drawing);
-const times=timeline(),byTime=new Map(times.map(t=>[t.id,t])),masks=[],total=num('duration')+tailDuration();
+const times=timeline(),byTime=new Map(times.map(t=>[t.id,t])),masks=[],total=num('duration')+tailDuration();const letterPens=new Map(),LETTER_PEN=1.6;
 if(!line){const source=originalNode('drawing-art'),els=drawables(source);els.forEach((el,i)=>{
 const transform=state.parents[i]||[1,0,0,1,0,0],mask=svgEl('mask',{id:'lm-mask-'+i,maskUnits:'userSpaceOnUse',maskContentUnits:'userSpaceOnUse',...maskBounds(state.view,transform),style:'mask-type:luminance'}),content=svgEl('g',{transform:'matrix('+transform.join(' ')+')'});
 mask.append(content);defs.append(mask);masks[i]=content;
@@ -41,15 +41,15 @@ const related=times.filter(t=>state.chains.find(c=>c.id===t.id)?.shape===i),fini
 // Complete each shape in its own letter window, never in a second pass at the end.
 // A shape holding several letters completes each letter in its own window, clipped to that letter, so corners the pen cut fill in before the next letter starts.
 const owners=state.groups.filter(g=>g.shapes.includes(i)&&g.strokes.length),extent=g=>{const cs=g.strokes.map(id=>state.chains.find(c=>c.id===id)).filter(Boolean),pts=cs.flatMap(c=>c.points);return {x0:Math.min(...pts.map(p=>p[0])),x1:Math.max(...pts.map(p=>p[0])),y0:Math.min(...pts.map(p=>p[1])),y1:Math.max(...pts.map(p=>p[1])),pad:Math.max(...cs.map(c=>c.width))/2+.05};};
-const regions=owners.length>1?owners.map(g=>{const e=extent(g),win=windowFor(g);let [x0,x1]=[e.x0-e.pad,e.x1+e.pad];for(const n of owners){if(n===g)continue;const f=extent(n);if(f.y1<e.y0||f.y0>e.y1)continue;if(f.x0>e.x0)x1=Math.min(x1,Math.max(e.x1,(e.x1+f.x0)/2));else if(f.x1<e.x1)x0=Math.max(x0,Math.min(e.x0,(e.x0+f.x1)/2));}return {x:x0,y:e.y0-e.pad,w:x1-x0,h:e.y1-e.y0+e.pad*2,finish:win.end};}):[{x,y,w,h,finish}];
-for(const r of regions){const completed=svgEl('rect',{x:r.x,y:r.y,width:r.w,height:r.h,fill:'white',opacity:0,'data-complete-at':r.finish});content.append(completed);
+const regions=owners.length>1?owners.map(g=>{const e=extent(g),win=windowFor(g);let [x0,x1]=[e.x0-e.pad,e.x1+e.pad];for(const n of owners){if(n===g)continue;const f=extent(n);if(f.y1<e.y0||f.y0>e.y1)continue;if(f.x0>e.x0)x1=Math.min(x1,Math.max(e.x1,(e.x1+f.x0)/2));else if(f.x1<e.x1)x0=Math.max(x0,Math.min(e.x0,(e.x0+f.x1)/2));}return {id:g.id,x:x0,y:e.y0-e.pad,w:x1-x0,h:e.y1-e.y0+e.pad*2,finish:win.end};}):[{x,y,w,h,finish}];
+for(const r of regions){if(r.id){const clip=svgEl('clipPath',{id:'lm-clip-'+r.id});clip.append(svgEl('rect',{x:r.x,y:r.y,width:r.w,height:r.h}));defs.append(clip);const target=svgEl('g',{'clip-path':'url(#lm-clip-'+r.id+')'});content.append(target);letterPens.set(r.id,target);}const completed=svgEl('rect',{x:r.x,y:r.y,width:r.w,height:r.h,fill:'white',opacity:0,'data-complete-at':r.finish});content.append(completed);
 if(animated){const at=r.finish*num('duration')/total;addDiscrete(completed,'opacity',at<1?[0,1,1]:[0,1],at<1?[0,at,1]:[0,1],total);}}
 const wrapper=svgEl('g',{mask:'url(#lm-mask-'+i+')'});el.parentNode.insertBefore(wrapper,el);wrapper.append(el);
 });drawing.append(source);}
 for(const c of state.chains){const timing=byTime.get(c.id);if(!timing)continue;
-const path=svgEl('path',{d:c.d,fill:'none',stroke:line?$('color').value:'white','stroke-width':line?num('width'):c.width*1.18,'stroke-linecap':$('cap').value,'stroke-linejoin':'round',pathLength:1,'stroke-dasharray':'1 2','stroke-dashoffset':pathsOnly?0:1,opacity:pathsOnly?1:0,'data-stroke-id':c.id,'data-start':timing.start,'data-end':timing.end});
+const path=svgEl('path',{d:c.d,fill:'none',stroke:line?$('color').value:'white','stroke-width':line?num('width'):c.width*(letterPens.has(groupOf(c.id)?.id)?LETTER_PEN:1.18),'stroke-linecap':$('cap').value,'stroke-linejoin':'round',pathLength:1,'stroke-dasharray':'1 2','stroke-dashoffset':pathsOnly?0:1,opacity:pathsOnly?1:0,'data-stroke-id':c.id,'data-start':timing.start,'data-end':timing.end});
 if(animated){const keys=animationKeys(timing,num('duration'),tailDuration()),a=svgEl('animate',{attributeName:'stroke-dashoffset',values:keys.values.join(';'),keyTimes:keys.times.join(';'),dur:keys.total+'s',begin:'0s',fill:'freeze',repeatCount:$('loop').checked?'indefinite':'1'});if($('ease').value==='ease'){a.setAttribute('calcMode','spline');a.setAttribute('keySplines',keys.values.slice(1).map((v,j)=>v===keys.values[j]?'0 0 1 1':'.42 0 .58 1').join(';'));}path.append(a);addDiscrete(path,'opacity',[0,1,1],[0,Math.min(keys.end,keys.start+1e-7),1],keys.total);}
-if(line)drawing.append(path);else masks[c.shape]?.append(path);
+if(line)drawing.append(path);else (letterPens.get(groupOf(c.id)?.id)||masks[c.shape])?.append(path);
 }
 if(animated&&$('fade').checked){drawing.append(svgEl('animate',{attributeName:'opacity',values:'1;1;0',keyTimes:[0,(num('duration')+.4)/total,1].join(';'),dur:total+'s',begin:'0s',calcMode:'linear',fill:'freeze',repeatCount:$('loop').checked?'indefinite':'1'}));}
 return root;
