@@ -13,8 +13,16 @@ export function trace(mask,w,h,{cleanup=1,tolerance=.7}={}){
  function walk(start,next){const path=[start];let prev=start,cur=next;used.add(key(prev,cur));let guard=0;while(guard++<w*h){path.push(cur);const ns=adj.get(cur)||[];if(cur===start||ns.length!==2)break;const n=ns[0]===prev?ns[1]:ns[0];if(used.has(key(cur,n)))break;used.add(key(cur,n));prev=cur;cur=n;}return path;}
  for(const [i,ns]of adj){if(ns.length!==2)for(const n of ns)if(!used.has(key(i,n)))raw.push(walk(i,n));if(ns.length===0)raw.push([i]);}
  for(const [i,ns]of adj)for(const n of ns)if(!used.has(key(i,n)))raw.push(walk(i,n));
- let paths=raw.map(indices=>{let length=0;const pts=indices.map(i=>[i%w,Math.floor(i/w)]);for(let j=1;j<pts.length;j++)length+=Math.hypot(pts[j][0]-pts[j-1][0],pts[j][1]-pts[j-1][1]);return {points:simplify(pts,tolerance),length,width:indices.reduce((max,i)=>Math.max(max,radius[i]),0)*2+3,terminal:(()=>{const a=(adj.get(indices[0])||[]).length,b=(adj.get(indices.at(-1))||[]).length;return (a<=1||b<=1)&&!(a<=1&&b<=1);})()};});
+ let paths=raw.map(indices=>{let length=0;const pts=indices.map(i=>[i%w,Math.floor(i/w)]);for(let j=1;j<pts.length;j++)length+=Math.hypot(pts[j][0]-pts[j-1][0],pts[j][1]-pts[j-1][1]);return {indices,points:simplify(pts,tolerance),length,width:indices.reduce((max,i)=>Math.max(max,radius[i]),0)*2+3,terminal:(()=>{const a=(adj.get(indices[0])||[]).length,b=(adj.get(indices.at(-1))||[]).length;return (a<=1||b<=1)&&!(a<=1&&b<=1);})()};});
  // Only a spur (one free end, one end at a junction) is cleaned up; a stroke with two free ends is a whole shape, such as an i-dot.
  const kept=paths.filter(p=>!p.terminal||p.length>=cleanup*p.width*.5);if(kept.length)paths=kept;else if(paths.length)paths=[paths.reduce((a,b)=>a.length>b.length?a:b)];
+ paths=assignReach(paths,mask,w,h);
  return paths.map(p=>({...p,points:p.points.length===1?[p.points[0],[p.points[0][0]+.01,p.points[0][1]]]:p.points}));
 }
+// How far each stroke's pen must reach to cover every pixel closest to it (corners, flares, sharp tips).
+function assignReach(paths,mask,w,h){const n=w*h,dist=new Float32Array(n).fill(Infinity),label=new Int32Array(n).fill(-1),d2=Math.SQRT2;paths.forEach((p,k)=>{for(const i of p.indices){dist[i]=0;label[i]=k;}});
+const relax=(i,j,step)=>{const d=dist[j]+step;if(d<dist[i]){dist[i]=d;label[i]=label[j];}};
+for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(x>0)relax(i,i-1,1);if(y>0){relax(i,i-w,1);if(x>0)relax(i,i-w-1,d2);if(x<w-1)relax(i,i-w+1,d2);}}
+for(let y=h-1;y>=0;y--)for(let x=w-1;x>=0;x--){const i=y*w+x;if(x<w-1)relax(i,i+1,1);if(y<h-1){relax(i,i+w,1);if(x<w-1)relax(i,i+w+1,d2);if(x>0)relax(i,i+w-1,d2);}}
+const reach=new Float32Array(paths.length);for(let i=0;i<n;i++)if(mask[i]&&label[i]>=0&&dist[i]>reach[label[i]])reach[label[i]]=dist[i];
+return paths.map((p,k)=>{const {indices,...rest}=p;return {...rest,reach:reach[k]+1.5};});}

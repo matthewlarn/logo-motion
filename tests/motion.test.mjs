@@ -15,4 +15,6 @@ assert.deepEqual(brushLayers(0),[{lag:0,alpha:1}]);
 for(const soft of [.2,1]){const layers=brushLayers(soft);let covered=0;layers.forEach((l,i)=>{covered=1-(1-covered)*(1-l.alpha);assert.ok(Math.abs(covered-(i+1)/layers.length)<1e-9);assert.ok(i===0||l.lag>layers[i-1].lag);});assert.equal(layers.at(-1).alpha,1);const t=lagTiming({start:.95,end:1,duration:.05},layers.at(-1).lag);assert.ok(t.end<=1&&t.start<t.end&&t.start>=.95);}
 // An isolated blob such as the dot of an i is a whole shape, not a spur, so it must survive cleanup.
 {const w=120,h=120,m=new Uint8Array(w*h);for(let y=40;y<100;y++)for(let x=50;x<66;x++)m[y*w+x]=1;for(let y=10;y<26;y++)for(let x=50;x<66;x++)m[y*w+x]=1;const paths=trace(m,w,h);assert.equal(paths.length,2);assert.ok(paths.some(p=>Math.max(...p.points.map(q=>q[1]))<30));}
+// Each stroke reports how far its pen must reach to cover the whole shape, so corners and tips fill as the pen passes.
+{const w=60,h=60,m=new Uint8Array(w*h);for(let y=10;y<50;y++)for(let x=20;x<40;x++)m[y*w+x]=1;const [bar]=trace(m,w,h);assert.ok(bar.reach>=10&&bar.reach<=20,'reach '+bar.reach);}
 console.log('PASS: grouped a timing, high-overlap completion, stable reordering, export keyframes, easing, curved paths, tracing, long-stroke recovery.');
