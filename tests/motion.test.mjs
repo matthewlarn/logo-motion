@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {makeSchedule,moveItem,eased,animationKeys,makePath,brushLayers,lagTiming} from '../dist/motion.mjs';
+import {strokeProgress,sampledKeys,makeSchedule,moveItem,eased,animationKeys,makePath,brushLayers,lagTiming} from '../dist/motion.mjs';
 import {trace} from '../dist/trace.mjs';
 const chains=[{id:0,length:1000},{id:1,length:20},{id:2,length:10},{id:3,length:40}];
 const groups=[{id:'b',strokes:[0],together:false},{id:'a',strokes:[1,2],together:true},{id:'c',strokes:[3],together:false}];
@@ -19,4 +19,7 @@ for(const soft of [.2,1]){const layers=brushLayers(soft);let covered=0;layers.fo
 {const w=60,h=60,m=new Uint8Array(w*h);for(let y=10;y<50;y++)for(let x=20;x<40;x++)m[y*w+x]=1;const [bar]=trace(m,w,h);assert.ok(bar.reach>=10&&bar.reach<=20,'reach '+bar.reach);}
 // Thinning never reaches a triangle's corners, so the pen must travel there itself: a spur runs to the sharp tip and the reach stays near the pen's own radius instead of growing into a blob.
 {const w=200,h=120,m=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const u=x-10,v=y-10;if(u>=0&&v>=0&&v<=100-100*u/180)m[y*w+x]=1;}const paths=trace(m,w,h);const tip=paths.find(p=>p.points.some(([x,y])=>Math.hypot(x-190,y-10)<4));assert.ok(tip,'a stroke reaches the sharp tip');for(const p of paths)assert.ok(p.reach<=p.width*.59+6,'reach '+p.reach+' width '+p.width);}
+// One motion per letter: eased progress across a letter's strokes is continuous, monotone and finishes exactly.
+{const letter=[{id:0,length:100},{id:1,length:50},{id:2,length:150}],sched=makeSchedule([{id:'m',strokes:[0,1,2],together:false}],letter,0);for(const mode of ['ease','linear']){let prev=[0,0,0];for(let i=0;i<=200;i++){const p=i/200;sched.forEach((t,k)=>{const v=strokeProgress(p,t,mode,true);assert.ok(v>=prev[k]-1e-9&&v<=1);prev[k]=v;});}assert.deepEqual(prev,[1,1,1]);}
+const keys=sampledKeys(sched[1],'ease',1.55,1);assert.equal(keys.times[0],0);assert.equal(keys.times.at(-1),1);assert.equal(keys.times.length,keys.values.length);assert.ok(keys.times.every((t,i)=>i===0||t>keys.times[i-1]));assert.ok(keys.values.every((v,i)=>i===0||v<=keys.values[i-1]+1e-9));assert.equal(keys.values.at(-1),0);}
 console.log('PASS: grouped a timing, high-overlap completion, stable reordering, export keyframes, easing, curved paths, tracing, long-stroke recovery.');
