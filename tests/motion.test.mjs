@@ -13,4 +13,6 @@ const w=80,h=80,mask=new Uint8Array(w*h);for(let y=10;y<70;y++)for(let x=30;x<46
 const n=720,snake=new Uint8Array(n*n);for(let row=2;row<n-2;row+=3){for(let x=2;x<n-2;x++)snake[row*n+x]=1;const x=((row-2)/3)%2===0?n-3:2;for(let y=row+1;y<=Math.min(row+3,n-3);y++)snake[y*n+x]=1;}assert.ok(trace(snake,n,n,{cleanup:0}).length>0);
 assert.deepEqual(brushLayers(0),[{lag:0,alpha:1}]);
 for(const soft of [.2,1]){const layers=brushLayers(soft);let covered=0;layers.forEach((l,i)=>{covered=1-(1-covered)*(1-l.alpha);assert.ok(Math.abs(covered-(i+1)/layers.length)<1e-9);assert.ok(i===0||l.lag>layers[i-1].lag);});assert.equal(layers.at(-1).alpha,1);const t=lagTiming({start:.95,end:1,duration:.05},layers.at(-1).lag);assert.ok(t.end<=1&&t.start<t.end&&t.start>=.95);}
+// An isolated blob such as the dot of an i is a whole shape, not a spur, so it must survive cleanup.
+{const w=120,h=120,m=new Uint8Array(w*h);for(let y=40;y<100;y++)for(let x=50;x<66;x++)m[y*w+x]=1;for(let y=10;y<26;y++)for(let x=50;x<66;x++)m[y*w+x]=1;const paths=trace(m,w,h);assert.equal(paths.length,2);assert.ok(paths.some(p=>Math.max(...p.points.map(q=>q[1]))<30));}
 console.log('PASS: grouped a timing, high-overlap completion, stable reordering, export keyframes, easing, curved paths, tracing, long-stroke recovery.');
