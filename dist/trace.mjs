@@ -54,7 +54,7 @@ for(const s of segments)out.push(segments.length>1||s!==p.indices?build(s,segmen
 // The spur is drawn by the same pen as its stroke, so it is at least as wide.
 for(const s of spurs){const px=line(s.pixel,s.far,w);if(px.length<2)continue;const spur=build(px,true);spur.width=Math.max(spur.width,paths[s.k].width);out.push(spur);}return out;}
 function line(a,b,w){const x0=a%w,y0=(a-x0)/w,x1=b%w,y1=(b-x1)/w,steps=Math.max(Math.abs(x1-x0),Math.abs(y1-y0)),out=[];for(let s=0;s<=steps;s++){const t=steps?s/steps:0,i=Math.round(y0+(y1-y0)*t)*w+Math.round(x0+(x1-x0)*t);if(i!==out.at(-1))out.push(i);}return out;}
-// How far each stroke's pen must reach to cover every pixel closest to it (corners, flares, sharp tips).
+// How far each stroke's pen must reach to cover every pixel closest to it (corners, flares, sharp tips). The chamfer distances run up to ~8% short on diagonals, so the result carries a margin.
 function assignReach(paths,mask,w,h){const n=w*h,{dist,label}=nearestStroke(paths,w,h);
 const reach=new Float32Array(paths.length);for(let i=0;i<n;i++)if(mask[i]&&label[i]>=0&&dist[i]>reach[label[i]])reach[label[i]]=dist[i];
-return paths.map((p,k)=>{const {indices,...rest}=p;return {...rest,reach:reach[k]+1.5};});}
+return paths.map((p,k)=>{const {indices,...rest}=p;return {...rest,reach:reach[k]*1.1+2};});}
