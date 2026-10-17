@@ -9,3 +9,15 @@
 dialog{background:#181a21;color:#e9e9ee;border:1px solid var(--border);border-radius:14px;padding:24px;width:min(560px,92vw)}dialog::backdrop{background:#000a}dialog h2{margin:0 0 8px}dialog textarea{width:100%;background:#101116;color:#e9e9ee;border:1px solid var(--border);border-radius:8px;padding:12px;font:.8rem 'DM Mono',monospace;resize:vertical}.dialog-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}
 .label-text{display:block;font-size:.875rem;margin-bottom:9px}.layers{margin-bottom:18px}.layer-row{display:flex;gap:9px;align-items:flex-start;margin:6px 0}.layer-row input{margin-top:3px;flex:none}.layer-row label{margin:0;font-size:.8rem;line-height:1.4;display:flex;gap:8px;align-items:flex-start;cursor:pointer}.layer-swatch{flex:none;width:16px;height:16px;margin-top:1px;border-radius:50%;border:2px solid #6b6f80;background:transparent}
 .show-toggle{flex:none;margin:0 2px 0 0}.letter-head.off .letter-select{opacity:.45}.off-layers{margin-top:18px;border-top:1px solid var(--border);padding-top:14px}.off-layers .label-text{margin-bottom:4px}
+
+.contexts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0 14px}
+.ctx{position:relative;margin:0;border-radius:12px;min-height:96px;display:flex;align-items:center;justify-content:center;padding:14px 14px 26px;overflow:hidden;border:1px solid var(--border)}
+.ctx img{max-width:100%;max-height:46px;width:auto;height:auto;display:block}
+.ctx figcaption{position:absolute;left:10px;bottom:7px;font:500 .65rem 'DM Mono',monospace;letter-spacing:.1em;text-transform:uppercase;opacity:.65}
+.ctx.light{background:#f4f4f6;color:#16171c}
+.ctx.dark{background:#16171c;color:#f4f4f6}
+.ctx.accent{background:linear-gradient(135deg,#ff3729,#ff7a45);color:#fff}
+.ctx.small{background:#2a2c37;color:#f4f4f6;gap:8px;padding-left:10px;padding-right:10px}
+.ctx.small .chip{flex:1;display:flex;align-items:center;justify-content:center;border-radius:8px;padding:8px 6px;min-width:0}
+.ctx.small .chip.light{background:#f4f4f6}.ctx.small .chip.dark{background:#0c0d12}
+.ctx.small img{max-height:16px}
