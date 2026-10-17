@@ -47,6 +47,7 @@ function regroup(){if(!state.chains.length||state.isKickback||state.loading)retu
 function applyOrder(){const choice=$('order').value;if(choice==='custom')return;if(choice==='reading'&&!state.isKickback){state.groups=readingOrder(state.groups);return;}state.groups.sort((a,b)=>choice==='source'?a.source-b.source||a.x-b.x:choice==='right'?groupOrder(b,a):groupOrder(a,b));}
 function originalNode(prefix){return namespaceSVG(state.source,prefix,state.view);}
 function addDiscrete(el,attribute,values,times,total){el.append(svgEl('animate',{attributeName:attribute,values:values.join(';'),keyTimes:times.join(';'),calcMode:'discrete',dur:total+'s',begin:'0s',fill:'freeze',repeatCount:$('loop').checked?'indefinite':'1'}));}
+const FILL_SOFT=.25;// minimum softness of the fill that follows the pen head
 const COMPLETE_RAMP=.12;// seconds
 function addRamp(el,attribute,from,to,total){const times=[0],values=[0];if(from>0){times.push(from);values.push(0);}if(to>from){times.push(to);values.push(1);}else{values[values.length-1]=1;}if(to<1){times.push(1);values.push(1);}el.append(svgEl('animate',{attributeName:attribute,values:values.join(';'),keyTimes:times.join(';'),calcMode:'linear',dur:total+'s',begin:'0s',fill:'freeze',repeatCount:$('loop').checked?'indefinite':'1'}));}
 function tailDuration(){return $('fade').checked?1:($('loop').checked?1:0);}
@@ -58,7 +59,7 @@ const times=timeline(),byTime=new Map(times.map(t=>[t.id,t])),masks=[],total=num
 if(!line){const source=originalNode('drawing-art'),els=drawables(source);els.forEach((el,i)=>{
 const transform=state.parents[i]||[1,0,0,1,0,0],mask=svgEl('mask',{id:'lm-mask-'+i,maskUnits:'userSpaceOnUse',maskContentUnits:'userSpaceOnUse',...maskBounds(state.view,transform),style:'mask-type:luminance'}),content=svgEl('g',{transform:'matrix('+transform.join(' ')+')'});
 mask.append(content);defs.append(mask);masks[i]=content;
-const lagTotal=brushLayers(num('brush')).at(-1).lag,related=times.filter(t=>state.chains.find(c=>c.id===t.id)?.shape===i),finish=related.length?Math.min(1,Math.max(...related.map(t=>t.end))+lagTotal):0;
+const lagTotal=Math.max(brushLayers(num('brush')).at(-1).lag,brushLayers(Math.max(num('brush'),FILL_SOFT)).at(-1).lag),related=times.filter(t=>state.chains.find(c=>c.id===t.id)?.shape===i),finish=related.length?Math.min(1,Math.max(...related.map(t=>t.end))+lagTotal):0;
 // Complete each shape in its own letter window, never in a second pass at the end.
 // A shape holding several letters completes each letter in its own window, clipped to that letter, so corners the pen cut fill in before the next letter starts.
 const owners=state.groups.filter(g=>g.shapes.includes(i)&&g.strokes.length),extent=g=>{const cs=g.strokes.map(id=>state.chains.find(c=>c.id===id)).filter(Boolean),pts=cs.flatMap(c=>c.points);return {x0:Math.min(...pts.map(p=>p[0])),x1:Math.max(...pts.map(p=>p[0])),y0:Math.min(...pts.map(p=>p[1])),y1:Math.max(...pts.map(p=>p[1])),pad:Math.max(...cs.map(c=>c.width))*.75};};
@@ -74,8 +75,9 @@ if(animated)addRamp(completed,'opacity',from*num('duration')/total,r.finish*num(
 const wrapper=svgEl('g',{mask:'url(#lm-mask-'+i+')'});el.parentNode.insertBefore(wrapper,el);wrapper.append(el);
 });drawing.append(source);}
 for(const c of state.chains){const base=byTime.get(c.id);if(!base)continue;
-for(const {lag,alpha} of line?[{lag:0,alpha:1}]:brushLayers(num('brush'))){const timing=lag?lagTiming(base,lag):base;
-const path=svgEl('path',{d:c.d,fill:'none',stroke:line?$('color').value:'white','stroke-width':line?num('width'):exactShapes.has(c.shape)&&c.reach>0?c.reach*2:c.width*(letterPens.has(groupOf(c.id)?.id)?LETTER_PEN:1.18),'stroke-linecap':$('cap').value,'stroke-linejoin':'round',pathLength:1,'stroke-dasharray':'1 2','stroke-dashoffset':pathsOnly?0:1,opacity:pathsOnly?1:0,'data-stroke-id':c.id,'data-start':timing.start,'data-end':timing.end,'data-lag':lag,'data-alpha':alpha});
+// Head layers are as thick as the stroke; later layers widen towards the full reach, so corners and flares fill in just behind the pen instead of arriving as one wide blob.
+const exact=!line&&exactShapes.has(c.shape)&&c.reach>0,layers=line?[{lag:0,alpha:1}]:brushLayers(exact?Math.max(num('brush'),FILL_SOFT):num('brush'));for(const [j,{lag,alpha}] of layers.entries()){const timing=lag?lagTiming(base,lag):base;
+const path=svgEl('path',{d:c.d,fill:'none',stroke:line?$('color').value:'white','stroke-width':line?num('width'):exact?c.width*1.04+Math.max(0,c.reach*2-c.width*1.04)*(layers.length>1?j/(layers.length-1):1):c.width*(letterPens.has(groupOf(c.id)?.id)?LETTER_PEN:1.18),'stroke-linecap':$('cap').value,'stroke-linejoin':'round',pathLength:1,'stroke-dasharray':'1 2','stroke-dashoffset':pathsOnly?0:1,opacity:pathsOnly?1:0,'data-stroke-id':c.id,'data-start':timing.start,'data-end':timing.end,'data-lag':lag,'data-alpha':alpha});
 if(animated){const oneMotion=$('continuous').checked&&$('ease').value==='ease',keys=oneMotion?sampledKeys(timing,'ease',num('duration'),tailDuration()):animationKeys(timing,num('duration'),tailDuration()),a=svgEl('animate',{attributeName:'stroke-dashoffset',values:keys.values.join(';'),keyTimes:keys.times.join(';'),dur:keys.total+'s',begin:'0s',fill:'freeze',repeatCount:$('loop').checked?'indefinite':'1'});if($('ease').value==='ease'&&!oneMotion){a.setAttribute('calcMode','spline');a.setAttribute('keySplines',keys.values.slice(1).map((v,j)=>v===keys.values[j]?'0 0 1 1':'.42 0 .58 1').join(';'));}path.append(a);addDiscrete(path,'opacity',[0,alpha,alpha],[0,Math.min(keys.end,keys.start+1e-7),1],keys.total);}
 if(line)drawing.append(path);else (letterPens.get(groupOf(c.id)?.id)||masks[c.shape])?.append(path);
 }}
