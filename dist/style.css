@@ -44,3 +44,5 @@ main{display:block}.shell{display:grid;grid-template-columns:minmax(0,1fr) 360px
 
 .welcome{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;background:#101116d9;backdrop-filter:blur(6px)}.welcome-card{width:min(520px,100%);padding:30px;background:#191b23;border:1px solid var(--border);border-radius:14px}.welcome-card h2{font-size:1.7rem;line-height:1.2;margin:10px 0 12px}.welcome-card p{color:var(--muted);line-height:1.6}
 .welcome-drop{margin:18px 0;padding:26px;text-align:center;border:1.5px dashed #626879;border-radius:10px;color:var(--muted)}.welcome-actions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+
+.built-by{padding:18px 16px 26px;text-align:center;font-size:.82rem;color:var(--muted);border-top:1px solid var(--border)}.built-by a{color:#e9e9ee;text-underline-offset:3px}.built-by a:hover{color:var(--accent)}
